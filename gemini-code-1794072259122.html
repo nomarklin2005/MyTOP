@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台指週選擇權即時 Delta 監控網頁</title>
+    <style>
+        :root {
+            --primary: #1b365d;
+            --highlight: #e6f0fa;
+            --accent-green: #0d9488;
+            --accent-red: #e11d48;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f8fafc;
+            color: #334155;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        h1 { color: var(--primary); margin-top: 0; }
+        .meta-info {
+            display: flex;
+            gap: 16px;
+            background: #f1f5f9;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+        }
+        th, td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th {
+            background-color: var(--primary);
+            color: white;
+            font-weight: 600;
+        }
+        tr:hover { background-color: #f8fafc; }
+        .golden-zone {
+            background-color: #dcfce7 !important; /* 符合 0.08~0.12 最佳化的黃金區間高亮 */
+            font-weight: bold;
+        }
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+        .tag-golden { background-color: var(--accent-green); color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>台指週選擇權 Delta 實時監控</h1>
+        <div class="meta-info">
+            <div><strong>更新時間：</strong> <span id="update-time">載入中...</span></div>
+            <div><strong>台指期現價：</strong> <span id="spot-price">--</span></div>
+            <div><strong>市場 VIX：</strong> <span id="vix-val">--</span></div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Call Delta</th>
+                    <th>Call 權利金</th>
+                    <th>履約價 (Strike)</th>
+                    <th>Put 權利金</th>
+                    <th>Put Delta</th>
+                    <th>3P 策略檢測</th>
+                </tr>
+            </thead>
+            <tbody id="data-table">
+                <!-- 數據由 JavaScript 動態寫入 -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function loadDeltaData() {
+            try {
+                // 讀取自動產生的 JSON 檔案
+                const response = await fetch('data.json?t=' + new Date().getTime());
+                const data = await response.json();
+
+                document.getElementById('update-time').innerText = data.update_time;
+                document.getElementById('spot-price').innerText = data.spot_price;
+                document.getElementById('vix-val').innerText = data.vix + "%";
+
+                const tbody = document.getElementById('data-table');
+                tbody.innerHTML = '';
+
+                data.options.forEach(row => {
+                    const tr = document.createElement('tr');
+                    
+                    // 判斷 Put Delta 絕對值是否落在 0.08 ~ 0.12 黃金區間
+                    const absPutDelta = Math.abs(row.put_delta);
+                    const isGolden = absPutDelta >= 0.08 && absPutDelta <= 0.12;
+
+                    if (isGolden) {
+                        tr.classList.add('golden-zone');
+                    }
+
+                    tr.innerHTML = `
+                        <td>${row.call_delta.toFixed(4)}</td>
+                        <td>${row.call_price}</td>
+                        <td><strong>${row.strike}</strong></td>
+                        <td>${row.put_price}</td>
+                        <td>${row.put_delta.toFixed(4)}</td>
+                        <td>${isGolden ? '<span class="tag tag-golden">黃金 3P 檔位</span>' : '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error("資料載入失敗", err);
+                document.getElementById('update-time').innerText = "資料載入失敗，請確認腳本已執行。";
+            }
+        }
+
+        loadDeltaData();
+    </script>
+</body>
+</html>
